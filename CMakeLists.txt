@@ -43,9 +43,8 @@ endif()
 
 # zstd
 if (WITH_SYSTEM_ZSTD)
-  find_path(ZSTD_INCLUDE_DIR NAMES zstd.h)
-  find_library(ZSTD_LIBRARIES NAMES zstd HINTS ${ZSTD_ROOT_DIR}/lib)
-  list(APPEND CHDR_LIBS zstd)
+  find_package(zstd REQUIRED)
+  list(APPEND PLATFORM_LIBS zstd::libzstd_shared)
 else()
   option(ZSTD_BUILD_SHARED "BUILD SHARED LIBRARIES" OFF)
   option(ZSTD_BUILD_PROGRAMS "BUILD PROGRAMS" OFF)
