@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.10)
 
 project(chdr VERSION 0.2 LANGUAGES C)
 
@@ -34,18 +34,22 @@ include(GNUInstallDirs)
 
 
 # lzma
-add_subdirectory(deps/lzma-24.05 EXCLUDE_FROM_ALL)
-  list(APPEND CHDR_LIBS lzma)
-  list(APPEND CHDR_INCLUDES lzma)
+if(NOT TARGET lzma)
+  add_subdirectory(deps/lzma-24.05 EXCLUDE_FROM_ALL)
+endif()
+list(APPEND CHDR_LIBS lzma)
+list(APPEND CHDR_INCLUDES lzma)
 
 # zlib
 if (WITH_SYSTEM_ZLIB)
   find_package(ZLIB REQUIRED)
   list(APPEND PLATFORM_LIBS ZLIB::ZLIB)
 else()
-  option(ZLIB_BUILD_EXAMPLES "Enable Zlib Examples" OFF)
-  add_subdirectory(deps/zlib-1.3.1 EXCLUDE_FROM_ALL)
-  set_target_properties(zlibstatic PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  if(NOT TARGET zlibstatic)
+    option(ZLIB_BUILD_EXAMPLES "Enable Zlib Examples" OFF)
+    add_subdirectory(deps/zlib-1.3.1 EXCLUDE_FROM_ALL)
+    set_target_properties(zlibstatic PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  endif()
   list(APPEND CHDR_LIBS zlibstatic)
 endif()
 
@@ -54,10 +58,12 @@ if (WITH_SYSTEM_ZSTD)
   find_package(zstd REQUIRED)
   list(APPEND PLATFORM_LIBS zstd::libzstd_shared)
 else()
-  option(ZSTD_BUILD_SHARED "BUILD SHARED LIBRARIES" OFF)
-  option(ZSTD_BUILD_PROGRAMS "BUILD PROGRAMS" OFF)
-  option(ZSTD_LEGACY_SUPPORT "LEGACY SUPPORT" OFF)
-  add_subdirectory(deps/zstd-1.5.6/build/cmake EXCLUDE_FROM_ALL)
+  if(NOT TARGET libzstd_static)
+    option(ZSTD_BUILD_SHARED "BUILD SHARED LIBRARIES" OFF)
+    option(ZSTD_BUILD_PROGRAMS "BUILD PROGRAMS" OFF)
+    option(ZSTD_LEGACY_SUPPORT "LEGACY SUPPORT" OFF)
+    add_subdirectory(deps/zstd-1.5.6/build/cmake EXCLUDE_FROM_ALL)
+  endif()
   list(APPEND CHDR_LIBS libzstd_static)
 endif()
 #--------------------------------------------------
