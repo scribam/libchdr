@@ -799,7 +799,11 @@ BoolInt CPU_IsSupported_AES (void) { return APPLE_CRYPTO_SUPPORT_VAL; }
 
 #ifdef USE_HWCAP
 
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
+  #include <sys/param.h>
+#endif
+
+#if (defined(__FreeBSD__) && __FreeBSD_version >= 1200000) || (defined(__OpenBSD__) && OpenBSD >= 202409)
 static unsigned long MY_getauxval(int aux)
 {
   unsigned long val;
