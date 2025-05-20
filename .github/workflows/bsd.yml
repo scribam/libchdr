@@ -11,19 +11,19 @@ jobs:
         architecture: [ arm64, x86-64 ]
         include:
           - operating_system: freebsd
-            version: '14.0'
-            pkginstall: sudo pkg install -y cmake git ninja pkgconf
+            version: '14.2'
+            pkginstall: sudo pkg update && sudo pkg install -y cmake git ninja pkgconf
           - operating_system: netbsd
-            version: '10.0'
-            pkginstall: sudo pkgin update && sudo pkgin -y install cmake gcc12 git ninja-build pkgconf && export PATH=/usr/pkg/gcc12/bin:$PATH
+            version: '10.1'
+            pkginstall: sudo pkgin update && sudo pkgin -y install clang cmake git ninja-build pkgconf
           - operating_system: openbsd
-            version: '7.5'
-            pkginstall: sudo pkg_add cmake git ninja pkgconf
+            version: '7.7'
+            pkginstall: sudo pkg_add -u && sudo pkg_add cmake git ninja pkgconf
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cross-platform-actions/action@v0.24.0
+      - uses: cross-platform-actions/action@v0.28.0
         with:
           operating_system: ${{ matrix.operating_system }}
           architecture: ${{ matrix.architecture }}
