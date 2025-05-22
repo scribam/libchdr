@@ -1,0 +1,9 @@
+[submodule "external/7zip"]
+	path = external/7zip
+	url = https://github.com/ip7z/7zip.git
+[submodule "external/zlib"]
+	path = external/zlib
+	url = https://github.com/madler/zlib.git
+[submodule "external/zstd"]
+	path = external/zstd
+	url = https://github.com/facebook/zstd
