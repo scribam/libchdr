@@ -781,6 +781,8 @@ BoolInt CPU_IsSupported_AES (void) { return APPLE_CRYPTO_SUPPORT_VAL; }
 
 #if defined(__GLIBC__) && (__GLIBC__ * 100 + __GLIBC_MINOR__ >= 216)
   #define Z7_GETAUXV_AVAILABLE
+#elif defined(__ANDROID__) && __ANDROID_API__ < 18
+  // getauxval not available
 #else
 // #pragma message("=== is not NEW GLIBC === ")
   #if defined __has_include
