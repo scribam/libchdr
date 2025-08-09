@@ -32,29 +32,81 @@ include(GNUInstallDirs)
 # dependencies
 #--------------------------------------------------
 
-
-# lzma
 if(NOT TARGET lzma)
-  add_subdirectory(deps/lzma-24.05 EXCLUDE_FROM_ALL)
+  add_library(lzma STATIC
+    external/7zip/C/Alloc.c
+    external/7zip/C/Bra.c
+    external/7zip/C/Bra86.c
+    external/7zip/C/BraIA64.c
+    external/7zip/C/CpuArch.c
+    external/7zip/C/Delta.c
+    external/7zip/C/LzFind.c
+    external/7zip/C/Lzma86Dec.c
+    external/7zip/C/LzmaDec.c
+    external/7zip/C/LzmaEnc.c
+    external/7zip/C/Sort.c
+  )
+  target_compile_definitions(lzma PRIVATE Z7_ST)
+  target_include_directories(lzma PUBLIC external/7zip/C)
+  set_target_properties(lzma PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+  option(WITH_LZMA_ASM "Use lzma asm" ON)
+  if(WITH_LZMA_ASM)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      include(CheckSymbolExists)
+      check_symbol_exists("__aarch64__" "" CPU_ARM64)
+      if(CPU_ARM64)
+        enable_language(ASM)
+        set_source_files_properties(external/7zip/C/LzmaDec.c PROPERTIES COMPILE_DEFINITIONS Z7_LZMA_DEC_OPT)
+        target_sources(lzma PRIVATE external/7zip/Asm/arm64/LzmaDecOpt.S)
+        set_source_files_properties(external/external/7zip/Asm/arm64/LzmaDecOpt.S PROPERTIES LANGUAGE ASM)
+      endif()
+    elseif(WIN32)
+      include(CheckSymbolExists)
+      check_symbol_exists("_M_AMD64" "" CPU_X64)
+      if(CPU_X64)
+        enable_language(ASM_MASM)
+        set_source_files_properties(external/7zip/C/LzmaDec.c PROPERTIES COMPILE_DEFINITIONS Z7_LZMA_DEC_OPT)
+        target_sources(lzma PRIVATE external/7zip/Asm/x86/LzmaDecOpt.asm)
+        set_source_files_properties(external/7zip/Asm/x86/LzmaDecOpt.asm PROPERTIES LANGUAGE ASM_MASM)
+      endif()
+    endif()
+  endif()
 endif()
 list(APPEND CHDR_LIBS lzma)
-list(APPEND CHDR_INCLUDES lzma)
 
 # zlib
-if (WITH_SYSTEM_ZLIB)
+if(WITH_SYSTEM_ZLIB)
+  # From 3.24 there is a cmake option to find zlib static
+  # but before, we need to do it in a more manual way
+  if(CMAKE_VERSION VERSION_LESS 3.24.0)
+    set(_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+    set(CMAKE_FIND_LIBRARY_SUFFIXES "static.lib" ".a")
+  else()
+    set(ZLIB_USE_STATIC_LIBS ON)
+  endif()
+
   find_package(ZLIB REQUIRED)
+
+  # Revert library suffix to what they were
+  if(CMAKE_VERSION VERSION_LESS 3.24.0)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ${_CMAKE_FIND_LIBRARY_SUFFIXES})
+    unset(_CMAKE_FIND_LIBRARY_SUFFIXES)
+  endif()
+
   list(APPEND PLATFORM_LIBS ZLIB::ZLIB)
 else()
   if(NOT TARGET zlibstatic)
-    option(ZLIB_BUILD_EXAMPLES "Enable Zlib Examples" OFF)
-    add_subdirectory(deps/zlib-1.3.1 EXCLUDE_FROM_ALL)
+    set(ZLIB_BUILD_TESTING OFF)
+    set(ZLIB_BUILD_SHARED OFF)
+    set(ZLIB_INSTALL OFF)
+    add_subdirectory(external/zlib EXCLUDE_FROM_ALL)
     set_target_properties(zlibstatic PROPERTIES POSITION_INDEPENDENT_CODE ON)
   endif()
   list(APPEND CHDR_LIBS zlibstatic)
 endif()
 
-# zstd
-if (WITH_SYSTEM_ZSTD)
+if(WITH_SYSTEM_ZSTD)
   find_package(zstd REQUIRED)
   if(TARGET zstd::libzstd_shared)
     list(APPEND PLATFORM_LIBS zstd::libzstd_shared)
@@ -63,13 +115,16 @@ if (WITH_SYSTEM_ZSTD)
   endif()
 else()
   if(NOT TARGET libzstd_static)
-    option(ZSTD_BUILD_SHARED "BUILD SHARED LIBRARIES" OFF)
-    option(ZSTD_BUILD_PROGRAMS "BUILD PROGRAMS" OFF)
-    option(ZSTD_LEGACY_SUPPORT "LEGACY SUPPORT" OFF)
-    add_subdirectory(deps/zstd-1.5.6/build/cmake EXCLUDE_FROM_ALL)
+    set(ZSTD_BUILD_SHARED "BUILD SHARED LIBRARIES" OFF)
+    set(ZSTD_BUILD_COMPRESSION "BUILD COMPRESSION MODULE" OFF)
+    set(ZSTD_BUILD_DICTBUILDER "BUILD DICTBUILDER MODULE" ON)
+    set(ZSTD_BUILD_PROGRAMS "BUILD PROGRAMS" OFF)
+    set(ZSTD_LEGACY_SUPPORT "LEGACY SUPPORT" OFF)
+    add_subdirectory(external/zstd/build/cmake EXCLUDE_FROM_ALL)
   endif()
   list(APPEND CHDR_LIBS libzstd_static)
 endif()
+
 #--------------------------------------------------
 # chdr
 #--------------------------------------------------
@@ -82,25 +137,23 @@ set(CHDR_SOURCES
   src/libchdr_huffman.c
 )
 
-list(APPEND CHDR_INCLUDES ${CMAKE_CURRENT_BINARY_DIR}/include)
-
 add_library(chdr-static STATIC ${CHDR_SOURCES})
-target_include_directories(chdr-static PRIVATE ${CHDR_INCLUDES} PUBLIC include)
+target_include_directories(chdr-static PUBLIC external include)
 target_link_libraries(chdr-static PRIVATE ${CHDR_LIBS} ${PLATFORM_LIBS})
 
 if(MSVC)
   target_compile_definitions(chdr-static PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()
 
-if (INSTALL_STATIC_LIBS)
+if(INSTALL_STATIC_LIBS)
   install(TARGETS chdr-static ${CHDR_LIBS}
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   )
 endif()
 
-if (BUILD_SHARED_LIBS)
+if(BUILD_SHARED_LIBS)
   add_library(chdr SHARED ${CHDR_SOURCES})
-  target_include_directories(chdr PRIVATE ${CHDR_INCLUDES} PUBLIC include)
+  target_include_directories(chdr PUBLIC external include)
   target_link_libraries(chdr PRIVATE ${CHDR_LIBS} ${PLATFORM_LIBS})
 
   if(MSVC)
@@ -119,10 +172,6 @@ if (BUILD_SHARED_LIBS)
   set_target_properties(chdr PROPERTIES VISIBILITY_INLINES_HIDDEN 1)
   set_target_properties(chdr PROPERTIES PUBLIC_HEADER "include/libchdr/bitstream.h;include/libchdr/cdrom.h;include/libchdr/chd.h;include/libchdr/chdconfig.h;include/libchdr/coretypes.h;include/libchdr/flac.h;include/libchdr/huffman.h")
   set_target_properties(chdr PROPERTIES VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}" SOVERSION ${PROJECT_VERSION_MAJOR})
-
-  if (CMAKE_BUILD_TYPE MATCHES Release)
-    #add_custom_command(TARGET chdr POST_BUILD COMMAND ${CMAKE_STRIP} libchdr.so)
-  endif (CMAKE_BUILD_TYPE MATCHES Release)
 
   install(TARGETS chdr
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
