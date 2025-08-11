@@ -11,7 +11,7 @@ jobs:
         architecture: [ arm64, x86-64 ]
         include:
           - operating_system: freebsd
-            version: '14.2'
+            version: '14.3'
             pkginstall: sudo pkg update && sudo pkg install -y cmake git ninja pkgconf
           - operating_system: netbsd
             version: '10.1'
@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cross-platform-actions/action@v0.28.0
+      - uses: cross-platform-actions/action@v0.29.0
         with:
           operating_system: ${{ matrix.operating_system }}
           architecture: ${{ matrix.architecture }}
